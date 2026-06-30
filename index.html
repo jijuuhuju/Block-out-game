@@ -21,7 +21,7 @@ function uh(){document.getElementById("s").textContent=sc;document.getElementByI
 function gch(){if(pt<50)return alert("P不足");pt-=50;let r=Math.random();if(r<0.4){itm[0]++;alert("巨大化獲得");}else if(r<0.8){itm[1]++;alert("減速獲得");}else{sc+=300;alert("スコア+300");}uh();}
 function itM(t){if(itm[t]<=0)return;itm[t]--;if(t===0){pw=100;setTimeout(()=>pw=60,15000);}else{dx*=0.5;dy*=0.5;setTimeout(()=>{dx*=(dx>0?2:2);dy*=(dy>0?2:2);},10000);}pzs(0);uh();}
 function sv(f){if(f){let cd=btoa(JSON.stringify({s:sc,p:pt,i:itm}));navigator.clipboard.writeText(cd);alert("コピー完了");}else{try{let d=JSON.parse(atob(prompt("コード入力")));sc=d.s;pt=d.p;itm=d.i;uh();}catch(e){alert("失敗");}}}
-function ptr(e){if(pzd)return;const r=cv.getBoundingClientRect();tx=( (e.touches?e.touches[0].clientX:e.clientX) - r.left)*(cv.width/r.width);}
+function ptr(e){if(pzd)return;const r=cv.getBoundingClientRect();tx=((e.touches?e.touches[0].clientX:e.clientX)-r.left)*(cv.width/r.width);}
 cv.addEventListener("mousemove",ptr);cv.addEventListener("touchstart",ptr,{passive:true});cv.addEventListener("touchmove",ptr,{passive:true});
 function draw(){
     if(pzd)return;ctx.clearRect(0,0,cv.width,cv.height);
