@@ -30,9 +30,9 @@ function draw(){
     ctx.fillStyle="#ff7675";ctx.fillRect(rvX,12,60,6);ctx.fillStyle="#0095DD";ctx.fillRect(px,cv.height-8,pw,8);
     ctx.beginPath();ctx.arc(x,y,6,0,Math.PI*2);ctx.fillStyle="#fff";ctx.fill();
     for(let c=0;c<cC;c++)for(let r=0;r<rC;r++){let b=br[c][r];if(b.s){b.x=c*(bW+pPad)+pL;b.y=r*(bH+pPad)+pT;ctx.fillStyle=b.t?"#9B59B6":"#FF5733";ctx.fillRect(b.x,b.y,bW,bH);
-    if(x>b.x&&x<b.x+bW&&y>b.y&&y<b.y+bH){dy=-dy;b.s=0;if(!b.t){sc+=10;pt+=5;}uh();if(br.every(ro=>ro.every(bl=>!bl.s))){pt+=50;initB();x=180;y=250;dy=-2;}}}}
+    if(x>b.x&&x<b.x+bW&&y>b.y&&y<b.y+bH){dy=-dy;b.s=0;if(!b.t){sc+=10;pt+=5;}uh();if(br.every(ro=>ro.every(bl=>!bl.s))){pt+=50;initB();x=180;y=250;dx=2;dy=-2;}}}}
     if(x+dx>cv.width-6||x+dx<6)dx=-dx;if(y+dy<20){if(x>rvX&&x<rvX+60){dy=-dy;rvSc+=15;}else if(y+dy<6)dy=-dy;}
-    if(y+dy>cv.height-6){if(x>px&&x<px+pw)dy=-dy;else{alert("GAME OVER");sc=0;x=180;y=250;dy=-2;initB();uh();tx=180;}}
+    if(y+dy>cv.height-6){if(x>px&&x<px+pw)dy=-dy;else{alert("GAME OVER");sc=0;x=180;y=250;dx=2;dy=-2;initB();uh();tx=180;}}
     px+=(tx-(px+pw/2))*0.35;if(px<0)px=0;if(px>cv.width-pw)px=cv.width-pw;x+=dx;y+=dy;requestAnimationFrame(draw);
 }uh();draw();
 </script></body></html>
