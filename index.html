@@ -1,324 +1,38 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>超・ブロック崩し (セーブコード版)</title>
-    <style>
-        body { margin: 0; background: #111; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; color: white; font-family: sans-serif; }
-        .hud { display: flex; gap: 20px; font-size: 18px; font-weight: bold; margin-bottom: 10px; }
-        canvas { background: #222; border: 2px solid #fff; display: block; }
-        .controls { margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: center; }
-        button { background: #0095DD; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #0077b3; }
-        input { padding: 8px; border-radius: 5px; border: 1px solid #ccc; width: 220px; text-align: center; font-size: 14px; background: #333; color: #fff; }
-        .info { font-size: 12px; color: #aaa; margin-top: 5px; text-align: center; max-width: 450px; }
-    </style>
-</head>
-<body>
-
-<div class="hud">
-    <div>スコア: <span id="scoreDisplay">0</span></div>
-    <div>ポイント: <span id="pointsDisplay">0</span>P</div>
-</div>
-
-<canvas id="gameCanvas" width="480" height="320"></canvas>
-
-<div class="controls">
-    <button onclick="playGacha()">ガチャを引く (50P)</button>
-    <button onclick="exportSaveCode()">セーブコードを発行</button>
-    <input id="saveCodeInput" type="text" placeholder="暗号化コードを貼り付け">
-    <button onclick="importSaveCode()">読込</button>
-</div>
-
-<div class="info">
-    【操作】← → 矢印キー で移動 / ガチャやアイテム機能付き<br>
-    【セーブ】発行された英数字のコードを保存し、次回貼り付けて読み込めます。
-</div>
-
+<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no"><title>ブロック崩しオンライン</title><style>
+body{margin:0;background:#111;color:#fff;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;touch-action:none;}
+.hd{width:360px;display:flex;justify-content:space-between;align-items:center;font-weight:bold;font-size:14px;margin-bottom:5px;}
+canvas{background:#222;border:2px solid #fff;display:block;}
+.m{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);justify-content:center;align-items:center;}
+.mc{background:#333;padding:20px;border-radius:8px;text-align:center;border:1px solid #fff;}
+button{background:#0095DD;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-weight:bold;margin:4px;}
+</style></head><body>
+<div class="hd"><div>点:<span id="s">0</span> P:<span id="p">0</span></div><div id="vs" style="color:#55efc4">検索中...</div><button onclick="pzs(1)">📦<span id="b">0</span></button></div>
+<canvas id="c" width="360" height="320"></canvas>
+<div style="margin-top:10px;"><button onclick="gch()">ガチャ(50P)</button><button onclick="sv(1)">セーブ</button><button onclick="sv(0)">読込</button></div>
+<div class="m" id="md"><div class="mc"><h3>📦 アイテム使用</h3><button onclick="itM(0)">パドル巨大化 (<span id="i0">0</span>)</button><br><button onclick="itM(1)">ボール減速 (<span id="i1">0</span>)</button><br><button style="background:#e74c3c" onclick="pzs(0)">閉じる</button></div></div>
 <script>
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-
-// ゲーム状態
-let score = 0;
-let points = 0;
-let isPlaying = true;
-
-// ボール
-let x = canvas.width / 2;
-let y = canvas.height - 30;
-let dx = 2.5;
-let dy = -2.5;
-const ballRadius = 8;
-
-// パドル
-const paddleHeight = 10;
-let paddleWidth = 75;
-let paddleX = (canvas.width - paddleWidth) / 2;
-let rightPressed = false;
-let leftPressed = false;
-let paddleTimer = null;
-
-// アイテム
-let items = [];
-
-// ブロック設定
-const brickRowCount = 4;
-const brickColumnCount = 6;
-const brickWidth = 65;
-const brickHeight = 15;
-const brickPadding = 8;
-const brickOffsetTop = 40;
-const brickOffsetLeft = 25;
-
-let bricks = [];
-function initBricks() {
-    bricks = [];
-    for (let c = 0; c < brickColumnCount; c++) {
-        bricks[c] = [];
-        for (let r = 0; r < brickRowCount; r++) {
-            let type = 0; 
-            let rand = Math.random();
-            if (rand < 0.15) type = 1; // フェイク
-            else if (rand < 0.25) type = 2; // 増殖
-
-            bricks[c][r] = { x: 0, y: 0, status: 1, type: type };
-        }
-    }
-}
-initBricks();
-
-// キーボード操作
-document.addEventListener("keydown", (e) => {
-    if (e.key === "Right" || e.key === "ArrowRight") rightPressed = true;
-    if (e.key === "Left" || e.key === "ArrowLeft") leftPressed = true;
-});
-document.addEventListener("keyup", (e) => {
-    if (e.key === "Right" || e.key === "ArrowRight") rightPressed = false;
-    if (e.key === "Left" || e.key === "ArrowLeft") leftPressed = false;
-});
-
-function updateHUD() {
-    document.getElementById("scoreDisplay").textContent = score;
-    document.getElementById("pointsDisplay").textContent = points;
-}
-
-// 衝突判定
-function collisionDetection() {
-    for (let c = 0; c < brickColumnCount; c++) {
-        for (let r = 0; r < brickRowCount; r++) {
-            const b = bricks[c][r];
-            if (b.status === 1) {
-                if (x > b.x && x < b.x + brickWidth && y > b.y && y < b.y + brickHeight) {
-                    dy = -dy;
-                    b.status = 0;
-
-                    if (b.type === 0) { 
-                        score += 10;
-                        points += 5;
-                        if (Math.random() < 0.20) {
-                            items.push({ x: b.x + brickWidth/2, y: b.y, speed: 2 });
-                        }
-                    } else if (b.type === 2) { 
-                        score += 20;
-                        points += 10;
-                        addRandomBricks();
-                    }
-
-                    updateHUD();
-                    if (checkWin()) {
-                        alert("ステージクリア！ボーナスポイント +50P！");
-                        points += 50;
-                        resetBall();
-                        initBricks();
-                        updateHUD();
-                    }
-                }
-            }
-        }
-    }
-}
-
-function addRandomBricks() {
-    let added = 0;
-    for (let c = 0; c < brickColumnCount; c++) {
-        for (let r = 0; r < brickRowCount; r++) {
-            if (bricks[c][r].status === 0 && added < 2) {
-                if (Math.random() < 0.5) {
-                    bricks[c][r].status = 1;
-                    bricks[c][r].type = 0; 
-                    added++;
-                }
-            }
-        }
-    }
-}
-
-function checkWin() {
-    return bricks.every(row => row.every(b => b.status === 0));
-}
-
-function resetBall() {
-    x = canvas.width / 2;
-    y = canvas.height - 30;
-    dx = 2.5 * (Math.random() > 0.5 ? 1 : -1);
-    dy = -2.5;
-}
-
-function playGacha() {
-    if (points < 50) {
-        alert("ポイントが足りません！(1回50P)");
-        return;
-    }
-    points -= 50;
-    updateHUD();
-
-    const rand = Math.random();
-    if (rand < 0.1) {
-        alert("🎉超大当たり！スコア＋500！");
-        score += 500;
-    } else if (rand < 0.4) {
-        alert("🎁当たり！パドルが15秒間巨大化！");
-        activatePaddleBig(15000);
-    } else {
-        alert("👍通常賞！ポイント20Pキャッシュバック！");
-        points += 20;
-    }
-    updateHUD();
-}
-
-function activatePaddleBig(duration = 30000) {
-    paddleWidth = 120;
-    clearTimeout(paddleTimer);
-    paddleTimer = setTimeout(() => {
-        paddleWidth = 75;
-    }, duration);
-}
-
-// 【セーブコード発行】データを一見読めない英数字のコードに変換
-function exportSaveCode() {
-    const saveData = { s: score, p: points };
-    // JSON文字列をBase64でエンコードしてセーブコード化
-    const code = btoa(unescape(encodeURIComponent(JSON.stringify(saveData))));
-    
-    document.getElementById("saveCodeInput").value = code;
-    navigator.clipboard.writeText(code);
-    alert("セーブコード（暗号風）を発行し、クリップボードにコピーしました！");
-}
-
-// 【セーブコード読込】コードを解析してデータを復元（改ざんエラーチェック付き）
-function importSaveCode() {
-    const code = document.getElementById("saveCodeInput").value.trim();
-    if (!code) return alert("コードを入力してください");
-
-    try {
-        // Base64コードをデコード
-        const decodedString = decodeURIComponent(escape(atob(code)));
-        const decoded = JSON.parse(decodedString);
-
-        // データの整合性チェック
-        if (decoded.s !== undefined && !isNaN(decoded.s) && decoded.p !== undefined && !isNaN(decoded.p)) {
-            score = parseInt(decoded.s, 10);
-            points = parseInt(decoded.p, 10);
-            updateHUD();
-            alert("セーブデータの読み込みに成功しました！");
-        } else {
-            throw new Error();
-        }
-    } catch (e) {
-        // コードが書き換えられていたり、無効な文字列だった場合の処理
-        alert("無効なセーブコードです。コードが書き換えられているか、正しくありません。");
-    }
-}
-
-// 描画
-function draw() {
-    if (!isPlaying) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // ボール
-    ctx.beginPath();
-    ctx.arc(x, y, ballRadius, 0, Math.PI * 2);
-    ctx.fillStyle = "#fff";
-    ctx.fill();
-    ctx.closePath();
-
-    // パドル
-    ctx.beginPath();
-    ctx.rect(paddleX, canvas.height - paddleHeight, paddleWidth, paddleHeight);
-    ctx.fillStyle = "#0095DD";
-    ctx.fill();
-    ctx.closePath();
-
-    // ブロック
-    for (let c = 0; c < brickColumnCount; c++) {
-        for (let r = 0; r < brickRowCount; r++) {
-            if (bricks[c][r].status === 1) {
-                const brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
-                const brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
-                bricks[c][r].x = brickX;
-                bricks[c][r].y = brickY;
-                
-                ctx.beginPath();
-                ctx.rect(brickX, brickY, brickWidth, brickHeight);
-                if (bricks[c][r].type === 0) ctx.fillStyle = "#FF5733"; 
-                else if (bricks[c][r].type === 1) ctx.fillStyle = "#9B59B6"; 
-                else if (bricks[c][r].type === 2) ctx.fillStyle = "#2ECC71"; 
-                
-                ctx.fill();
-                ctx.closePath();
-            }
-        }
-    }
-
-    // アイテム
-    for (let i = items.length - 1; i >= 0; i--) {
-        const it = items[i];
-        it.y += it.speed;
-
-        ctx.beginPath();
-        ctx.rect(it.x - 5, it.y, 10, 15);
-        ctx.fillStyle = "#3498DB";
-        ctx.fill();
-        ctx.closePath();
-
-        if (it.y > canvas.height - paddleHeight && it.x > paddleX && it.x < paddleX + paddleWidth) {
-            activatePaddleBig();
-            items.splice(i, 1);
-            continue;
-        }
-        if (it.y > canvas.height) items.splice(i, 1);
-    }
-
-    collisionDetection();
-
-    // 壁反射
-    if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) dx = -dx;
-    if (y + dy < ballRadius) dy = -dy;
-    else if (y + dy > canvas.height - ballRadius) {
-        if (x > paddleX && x < paddleX + paddleWidth) {
-            dy = -dy;
-        } else {
-            alert("ゲームオーバー！今回の獲得スコア: " + score);
-            score = 0; 
-            items = [];
-            resetBall();
-            initBricks();
-            updateHUD();
-        }
-    }
-
-    if (rightPressed && paddleX < canvas.width - paddleWidth) paddleX += 7;
-    if (leftPressed && paddleX > 0) paddleX -= 7;
-
-    x += dx;
-    y += dy;
-    requestAnimationFrame(draw);
-}
-
-updateHUD();
-draw();
-</script>
-</body>
-</html>
+const cv=document.getElementById("c"),ctx=cv.getContext("2d");
+let sc=0,pt=0,itm=[0,0],pzd=0,x=180,y=250,dx=2,dy=-2,pw=60,px=150,tx=180,rvX=150,rvSc=0,rvN="Rival_"+Math.floor(1000+Math.random()*9000);
+const br=[],rC=3,cC=5,bW=56,bH=15,pPad=6,pT=40,pL=25;
+setTimeout(()=>document.getElementById("vs").textContent="⚔️ VS "+rvN,2000);
+function initB(){for(let c=0;c<cC;c++){br[c]=[];for(let r=0;r<rC;r++)br[c][r]={x:0,y:0,s:1,t:Math.random()<0.2?1:0};}} initB();
+function pzs(f){pzd=f;document.getElementById("md").style.display=f?"flex":"none";if(!f)draw();}
+function uh(){document.getElementById("s").textContent=sc;document.getElementById("p").textContent=pt;document.getElementById("b").textContent=itm[0]+itm[1];document.getElementById("i0").textContent=itm[0];document.getElementById("i1").textContent=itm[1];}
+function gch(){if(pt<50)return alert("P不足");pt-=50;let r=Math.random();if(r<0.4){itm[0]++;alert("巨大化獲得");}else if(r<0.8){itm[1]++;alert("減速獲得");}else{sc+=300;alert("スコア+300");}uh();}
+function itM(t){if(itm[t]<=0)return;itm[t]--;if(t===0){pw=100;setTimeout(()=>pw=60,15000);}else{dx*=0.5;dy*=0.5;setTimeout(()=>{dx*=(dx>0?2:2);dy*=(dy>0?2:2);},10000);}pzs(0);uh();}
+function sv(f){if(f){let cd=btoa(JSON.stringify({s:sc,p:pt,i:itm}));navigator.clipboard.writeText(cd);alert("コピー完了");}else{try{let d=JSON.parse(atob(prompt("コード入力")));sc=d.s;pt=d.p;itm=d.i;uh();}catch(e){alert("失敗");}}}
+function ptr(e){if(pzd)return;const r=cv.getBoundingClientRect();tx=( (e.touches?e.touches[0].clientX:e.clientX) - r.left)*(cv.width/r.width);}
+cv.addEventListener("mousemove",ptr);cv.addEventListener("touchstart",ptr,{passive:true});cv.addEventListener("touchmove",ptr,{passive:true});
+function draw(){
+    if(pzd)return;ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.strokeStyle="rgba(255,255,255,0.1)";ctx.beginPath();ctx.moveTo(0,40);ctx.lineTo(cv.width,40);ctx.stroke();
+    let rTx=x-30;rvX+=(rTx-rvX)*0.07;if(rvX<0)rvX=0;if(rvX>cv.width-60)rvX=cv.width-60;if(Math.random()<0.003)rvSc+=10;
+    ctx.fillStyle="#ff7675";ctx.fillRect(rvX,12,60,6);ctx.fillStyle="#0095DD";ctx.fillRect(px,cv.height-8,pw,8);
+    ctx.beginPath();ctx.arc(x,y,6,0,Math.PI*2);ctx.fillStyle="#fff";ctx.fill();
+    for(let c=0;c<cC;c++)for(let r=0;r<rC;r++){let b=br[c][r];if(b.s){b.x=c*(bW+pPad)+pL;b.y=r*(bH+pPad)+pT;ctx.fillStyle=b.t?"#9B59B6":"#FF5733";ctx.fillRect(b.x,b.y,bW,bH);
+    if(x>b.x&&x<b.x+bW&&y>b.y&&y<b.y+bH){dy=-dy;b.s=0;if(!b.t){sc+=10;pt+=5;}uh();if(br.every(ro=>ro.every(bl=>!bl.s))){pt+=50;initB();x=180;y=250;dy=-2;}}}}
+    if(x+dx>cv.width-6||x+dx<6)dx=-dx;if(y+dy<20){if(x>rvX&&x<rvX+60){dy=-dy;rvSc+=15;}else if(y+dy<6)dy=-dy;}
+    if(y+dy>cv.height-6){if(x>px&&x<px+pw)dy=-dy;else{alert("GAME OVER");sc=0;x=180;y=250;dy=-2;initB();uh();tx=180;}}
+    px+=(tx-(px+pw/2))*0.35;if(px<0)px=0;if(px>cv.width-pw)px=cv.width-pw;x+=dx;y+=dy;requestAnimationFrame(draw);
+}uh();draw();
+</script></body></html>
